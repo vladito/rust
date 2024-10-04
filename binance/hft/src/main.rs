@@ -78,6 +78,21 @@ async fn place_order(
     Ok(response)
 }
 
+fn get_server_time() -> u64 {
+    let start = SystemTime::now();
+    let since_the_epoch = start.duration_since(UNIX_EPOCH).expect("Time went backwards");
+    since_the_epoch.as_millis() as u64
+}
+
+// Sign the query string using HMAC-SHA256
+fn sign(query_string: &str, secret: &str) -> String {
+    let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).expect("HMAC can take key of any size");
+    mac.update(query_string.as_bytes());
+    let result = mac.finalize();
+    let code_bytes = result.into_bytes();
+    hex::encode(code_bytes)
+}
+
 #[tokio::main]
 async fn main() {
     //Task 1: WebSocket for real-time data    
@@ -92,19 +107,4 @@ async fn main() {
         Err(e) => eprintln!("Error placing order: {:?}", e),
     }
     websocket_task.await.unwrap();
-}
-
-fn get_server_time() -> u64 {
-    let start = SystemTime::now();
-    let since_the_epoch = start.duration_since(UNIX_EPOCH).expect("Time went backwards");
-    since_the_epoch.as_millis() as u64
-}
-
-// Sign the query string using HMAC-SHA256
-fn sign(query_string: &str, secret: &str) -> String {
-    let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).expect("HMAC can take key of any size");
-    mac.update(query_string.as_bytes());
-    let result = mac.finalize();
-    let code_bytes = result.into_bytes();
-    hex::encode(code_bytes)
 }
