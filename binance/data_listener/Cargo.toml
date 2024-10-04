@@ -1,0 +1,10 @@
+[package]
+name = "data_listener"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = { version = "0.18", features = ["native-tls"] }
+futures-util = "0.3"         # For working with async streams
+serde_json = "1"             # For JSON handling
