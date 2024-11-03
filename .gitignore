@@ -4,3 +4,13 @@
 **/server/
 .csv
 **/test-ledger/
+
+# Node modules
+/node_modules
+
+# Build output
+/dist
+
+# Logs
+logs
+*.log
