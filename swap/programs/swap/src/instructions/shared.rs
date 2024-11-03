@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface, TransferChecked};
+use anchor_spl:: token_interface::{Mint, TokenAccount, TokenInterface, TransferChecked, transfer_checked};
 
 pub fn transfer_tokens<'info> (
     from: &InterfaceAccount<'info, TokenAccount>,
@@ -23,5 +23,6 @@ pub fn transfer_tokens<'info> (
         transfer_accounts_options
     );
 
+    let _ = transfer_checked(cpi_context, *amount, mint.decimals);
     Ok(())
 }
