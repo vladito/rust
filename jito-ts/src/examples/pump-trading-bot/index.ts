@@ -55,8 +55,12 @@ class TradingBot {
     }
 
     async initialize() {
-        this.solToUsdRate = await this.updateSolToUsdRate();
-        this.setupWebSocket(); // Set up the WebSocket connection
+        try {
+            this.solToUsdRate = await this.updateSolToUsdRate();
+            this.setupWebSocket();
+        } catch (error) {
+            console.error('Initialization error:', error);
+        }
     }
 
     setupWebSocket() {
@@ -66,11 +70,7 @@ class TradingBot {
         // Event listener for when the connection is established
         this.ws.on('open', () => {
             console.log('WebSocket connection established');
-            // Subscribing to token creation events
-            const payload = {
-                method: "subscribeNewToken",
-            };
-            this.ws?.send(JSON.stringify(payload)); // Use optional chaining to safely send the message
+            this.subscribeToNewTokens();
         });
 
         // Event listener for incoming messages
@@ -86,8 +86,13 @@ class TradingBot {
             console.log('WebSocket connection closed');
             // connection closed, discard old websocket and create a new one in 5s
             this.ws = null
-            setTimeout(this.setupWebSocket, 5000)
+            setTimeout(() => this.setupWebSocket(), 5000);
         });
+    }
+
+    subscribeToNewTokens() {
+        const payload = { method: 'subscribeNewToken' };
+        this.ws?.send(JSON.stringify(payload));
     }
 
     async handleWebSocketMessage(data: WebSocket.Data) {
@@ -109,10 +114,30 @@ class TradingBot {
                 // Subscribe to token trade events for the newly minted token
                 this.subscribeToTokenTrade(parsedData.mint);
 
+                // Measure the duration of validateToken
+                const startValidationTime = Date.now();
+
                 // Validate token before trading
                 if (await this.validateToken(parsedData.mint)) {
+                    const validationDurationMinutes = (Date.now() - startValidationTime) / 60000;
                     console.log("Buy coin: ", parsedData.mint);
+
+                    this.logTrade('buy', {
+                        tokenCA: parsedData.mint,
+                        amount: validationDurationMinutes,
+                        signature: 'No signature',
+                        timestamp: Date.now()
+                    });
+                    
                     await this.executeBuyStrategy(parsedData.mint);
+                } else {
+                    this.unSubscribeToTokenTrade(parsedData.mint);
+                    this.logTrade('Unsubscribe', {
+                        tokenCA: parsedData.mint,
+                        amount: 0,
+                        signature: 'No signature',
+                        timestamp: Date.now()
+                    });
                 }
             }
             else if ((parsedData.txType === 'buy' || parsedData.txType === 'sell') && parsedData.mint) {
@@ -261,7 +286,7 @@ class TradingBot {
         }
     }
  
-    // Function to get the SOL price in USD using Helius API
+    // Function to get the SOL price in USD using CoinGecko API
     async updateSolToUsdRate(): Promise<number | null> {
         try {
             const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
@@ -290,18 +315,19 @@ class TradingBot {
         try {
             // Execute buy
             const buyAmount = CONFIG.TRADE_SETTINGS.maxBuyAmount;
-            // const buyResult = await this.buyCoin(buyAmount, tokenCA);
 
-            // if (buyResult.success) {
-            //     this.purchasedTokens.set(tokenCA, {
-            //         buyPrice: buyResult.price,
-            //         timestamp: Date.now(),
-            //         marketCap: this.state.marketMetrics.initialMarketCap
-            //     });
-                
-            //     // Start monitoring for sell conditions
-            //     //this.monitorSellConditions(tokenCA);
-            // }
+            const buyResult = await this.buyCoin(buyAmount, tokenCA);
+
+            if (buyResult.success) {
+                this.purchasedTokens.set(tokenCA, {
+                    buyPrice: buyResult.price,
+                    timestamp: Date.now(),
+                    marketCap: this.state.marketMetrics.initialMarketCap
+                });
+                process.exit(0);
+                // Start monitoring for sell conditions
+                //this.monitorSellConditions(tokenCA);
+            }
         } catch (error) {
             console.error('Buy strategy execution error:', error);
         }
@@ -319,7 +345,7 @@ class TradingBot {
                     action: "buy",
                     mint: tokenCA,
                     denominatedInSol: "true",
-                    amount: 0.00001,
+                    amount: 0.001,
                     slippage: CONFIG.TRADE_SETTINGS.slippage,
                     priorityFee: CONFIG.TRADE_SETTINGS.priorityFee,
                     pool: "pump"

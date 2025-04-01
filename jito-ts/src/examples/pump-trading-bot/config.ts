@@ -18,7 +18,8 @@ export const CONFIG = {
         uniqueHolders: 15,
         minVolume: 20000,
         unsubscribeDelay: 60 * 60 * 1000, // one hour of validation
-        solPrice: 160
+        solPrice: 199,
+        MIN_LIQUIDITY_THRESHOLD: 1000
     },
     PATHS: {
         logFile: '/home/vladoram/projects/jito-ts/logs/dev.txt',
